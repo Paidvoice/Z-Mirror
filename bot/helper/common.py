@@ -154,6 +154,7 @@ class TaskConfig:
         self.forceUpload = False
         self.isTorrent = False
         self.is_playlist = False
+        self.metadata = False
         self.suproc = None
         self.thumb = None
         self.dmMessage = None
@@ -391,6 +392,11 @@ class TaskConfig:
                 "aria2",
                 "!qB"
             ]
+        )
+        self.metadata = self.userDict.get("metatxt") or (
+            config_dict["METADATA_TXT"]
+            if "metatxt" not in self.userDict
+            else False
         )
         if self.link not in [
             "rcl",

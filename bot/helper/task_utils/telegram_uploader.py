@@ -53,7 +53,6 @@ from bot.helper.ext_utils.media_utils import (
     get_audio_thumb,
 )
 from bot.helper.telegram_helper.message_utils import deleteMessage
-from bot.modules.metadata import edit_video_metadata
 
 LOGGER = getLogger(__name__)
 
@@ -76,7 +75,6 @@ class TgUploader:
         self._lprefix = ""
         self._lsuffix = ""
         self._lcapfont = ""
-        self._metaData = ""
         self._media_group = False
         self._is_private = False
         self._sent_msg = None
@@ -112,11 +110,6 @@ class TgUploader:
         self._lcapfont = self._listener.userDict.get("lcapfont") or (
             config_dict["LEECH_CAPTION_FONT"]
             if "lcapfont" not in self._listener.userDict
-            else ""
-        )
-        self._metaData = self._listener.userDict.get("metatxt") or (
-            config_dict["METADATA_TXT"]
-            if "metatxt" not in self._listener.userDict
             else ""
         )
         if not await aiopath.exists(self._thumb): # type: ignore
@@ -182,19 +175,6 @@ class TgUploader:
         return True
 
     async def _prepare_file(self, file_, dirpath, delete_file):
-        fpath = ospath.join(dirpath, file_)
-        (
-            is_video,
-            _,
-            _
-        ) = await get_document_type(fpath)
-        if is_video:
-            if self._metaData:
-                LOGGER.info(f"Editing Metadata: {fpath}")
-                await edit_video_metadata(
-                    self._metaData,
-                    fpath
-                )
         if self._lprefix or self._lsuffix:
             if self._lprefix:
                 cap_mono = f"{self._lprefix} {file_}"

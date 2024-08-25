@@ -44,6 +44,7 @@ class MirrorStatus:
     STATUS_SEEDING = "Seed 🌧"
     STATUS_SAMVID = "SampleVid 🎬"
     STATUS_CONVERTING = "Convert ♻️"
+    STATUS_METADATA = "Metadata 📝"
 
 
 STATUSES = {
@@ -61,6 +62,7 @@ STATUSES = {
     "CK": MirrorStatus.STATUS_CHECKING,
     "SV": MirrorStatus.STATUS_SAMVID,
     "PA": MirrorStatus.STATUS_PAUSED,
+    "MD": MirrorStatus.STATUS_METADATA
 }
 
 
