@@ -13,12 +13,12 @@ from asyncio.subprocess import PIPE
 from os import (
     path as ospath,
     cpu_count,
-    replace as osreplace
+    replace as osreplace,
+    remove as osremove
 )
 from re import search as re_search
 from time import time
 from aioshutil import rmtree
-from json import loads
 
 from bot import LOGGER, subprocess_lock
 from bot.helper.ext_utils.bot_utils import cmd_exec
@@ -167,7 +167,7 @@ async def createThumb(msg, _id=""):
     await remove(photo_dir)
     return des_dir
 
-
+global_streams = {}
 async def is_multi_streams(path):
     try:
         result = await cmd_exec(
@@ -191,8 +191,8 @@ async def is_multi_streams(path):
     ):
         fields = eval(result[0]).get("streams")
         if fields is None:
-            LOGGER.error(f"get_video_streams: {result}")
             return False
+        global_streams["stream"] = fields
         videos = 0
         audios = 0
         for stream in fields:
@@ -808,7 +808,8 @@ async def createSampleVideo(listener, video_file, sample_duration, part_duration
         return False
 
 
-async def edit_video_metadata(data, dir):
+async def edit_video_metadata(listener, data, dir):
+
     if not dir.lower().endswith((
         ".mp4",
         ".mkv"
@@ -823,36 +824,7 @@ async def edit_video_metadata(data, dir):
         temp_file
     )
 
-    cmd = [
-        "ffprobe",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-print_format",
-        "json",
-        "-show_streams",
-        dir
-    ]
-    LOGGER.info(f"Getting stream info for file: {file_name}")
-    process = await create_subprocess_exec(
-        *cmd,
-        stdout=PIPE,
-        stderr=PIPE
-    )
-    (
-        stdout,
-        stderr
-    ) = await process.communicate()
-
-    if process.returncode != 0:
-        LOGGER.error(f"Error getting stream info: {stderr.decode().strip()}")
-        return dir
-
-    try:
-        streams = loads(stdout)["streams"]
-    except:
-        LOGGER.info(f"No streams found in the ffprobe output: {stdout.decode().strip()}")
-        return dir
+    await is_multi_streams(dir)
 
     cmd = [
         "ffmpeg",
@@ -861,104 +833,142 @@ async def edit_video_metadata(data, dir):
         dir,
         "-c",
         "copy",
-        "-metadata:s:v:0", f"title={data}",
-        "-metadata", f"title={data}",
-        "-metadata", "copyright=",
-        "-metadata", "description=",
-        "-metadata", "license=",
-        "-metadata", "LICENSE=",
-        "-metadata", "author=",
-        "-metadata", "summary=",
-        "-metadata", "comment=",
-        "-metadata", "artist=",
-        "-metadata", "album=",
-        "-metadata", "genre=",
-        "-metadata", "date=",
-        "-metadata", "creation_time=",
-        "-metadata", "language=",
-        "-metadata", "publisher=",
-        "-metadata", "encoder=",
-        "-metadata", "SUMMARY=",
-        "-metadata", "AUTHOR=",
-        "-metadata", "WEBSITE=",
-        "-metadata", "COMMENT=",
-        "-metadata", "ENCODER=",
-        "-metadata", "FILENAME=",
-        "-metadata", "MIMETYPE=",
-        "-metadata", "PURL=",
-        "-metadata", "ALBUM="
+        "-metadata",
+        f"title={data}",
+        "-threads",
+        f"{cpu_count() // 2}", # type: ignore
     ]
+
+    meta_info = [
+        "copyright",
+        "description",
+        "license",
+        "LICENSE",
+        "author",
+        "summary",
+        "comment",
+        "artist",
+        "album",
+        "genre",
+        "date",
+        "creation_time",
+        "language",
+        "publisher",
+        "encoder",
+        "SUMMARY",
+        "AUTHOR",
+        "WEBSITE",
+        "COMMENT",
+        "ENCODER",
+        "FILENAME",
+        "MIMETYPE",
+        "PURL",
+        "ALBUM"
+    ]
+
+    for field in meta_info:
+        cmd.extend([
+            "-metadata",
+            f"{field}="
+        ])
 
     audio_index = 0
     subtitle_index = 0
     first_video = False
 
-    for stream in streams:
-        stream_index = stream["index"]
-        stream_type = stream["codec_type"]
+    if global_streams:
+        for stream in global_streams["stream"]:
+            stream_index = stream["index"]
+            stream_type = stream["codec_type"]
 
-        if stream_type == "video":
-            if not first_video:
+            if stream_type == "video":
+                if not first_video:
+                    cmd.extend([
+                        "-map",
+                        f"0:{stream_index}"
+                    ])
+                    first_video = True
+                cmd.extend([
+                    f"-metadata:s:v:{stream_index}",
+                    f"title={data}"
+                ])
+
+            elif stream_type == "audio":
+                cmd.extend([
+                    "-map",
+                    f"0:{stream_index}",
+                    f"-metadata:s:a:{audio_index}",
+                    f"title={data}"
+                ])
+                audio_index += 1
+
+            elif stream_type == "subtitle":
+                codec_name = stream.get(
+                    "codec_name",
+                    "unknown"
+                )
+                if codec_name not in [
+                    "webvtt",
+                    "unknown"
+                ]:
+                    cmd.extend([
+                        "-map", f"0:{stream_index}",
+                        f"-metadata:s:s:{subtitle_index}",
+                        f"title={data}"
+                    ])
+                    subtitle_index += 1
+                else:
+                    LOGGER.info(f"Skipping unsupported subtitle metadata modification: {codec_name} for stream {stream_index}")
+
+            else:
                 cmd.extend([
                     "-map",
                     f"0:{stream_index}"
                 ])
-                first_video = True
-            cmd.extend([
-                f"-metadata:s:v:{stream_index}",
-                f"title={data}"
-            ])
-        elif stream_type == "audio":
-            cmd.extend([
-                "-map",
-                f"0:{stream_index}",
-                f"-metadata:s:a:{audio_index}",
-                f"title={data}"
-            ])
-            audio_index += 1
-        elif stream_type == "subtitle":
-            codec_name = stream.get(
-                "codec_name",
-                "unknown"
-            )
-            if codec_name in [
-                "webvtt",
-                "unknown"
-            ]:
-                LOGGER.info(f"Skipping unsupported subtitle metadata modification: {codec_name} for stream {stream_index}")
-            else:
-                cmd.extend([
-                    "-map",
-                    f"0:{stream_index}",
-                    f"-metadata:s:s:{subtitle_index}",
-                    f"title={data}"
-                ])
-                subtitle_index += 1
-        else:
-            cmd.extend([
-                "-map",
-                f"0:{stream_index}"
-            ])
+
+    else:
+        LOGGER.info("No streams found. Skipping stream metadata modification.")
+        return dir
 
     cmd.append(temp_file_path)
     LOGGER.info(f"Modifying metadata for file: {file_name}")
-    process = await create_subprocess_exec(
-        *cmd,
-        stderr=PIPE,
-        stdout=PIPE
-    )
-    (
-        stdout,
-        stderr
-    ) = await process.communicate()
 
-    if process.returncode != 0:
-        err = stderr.decode().strip()
-        LOGGER.error(f"Error modifying metadata for file: {file_name} | {err}")
+    try:
+        async with subprocess_lock:
+            if listener.isCancelled:
+                return
+            listener.suproc = await create_subprocess_exec(
+                *cmd,
+                stderr=PIPE,
+                stdout=PIPE
+            )
+        (
+            _,
+            stderr
+        ) = await listener.suproc.communicate()
+
+        if listener.suproc.returncode != 0:
+            if listener.isCancelled:
+                return
+            err = stderr.decode().strip()
+            LOGGER.error(f"Error modifying metadata for file: {file_name} | {err}")
+            if ospath.exists(temp_file_path):
+                osremove(temp_file_path)
+            return dir
+
+        if ospath.exists(temp_file_path):
+            osreplace(
+                temp_file_path,
+                dir
+            )
+            LOGGER.info(f"Metadata modified successfully for file: {file_name}")
+        else:
+            LOGGER.error(f"Temporary file {temp_file_path} not found. Metadata modification failed.")
+
+    except (RuntimeError, OSError) as e:
+        LOGGER.error(f"Error modifying metadata: {str(e)}")
+        if ospath.exists(temp_file_path):
+            osremove(temp_file_path)
         return dir
 
-    osreplace(
-        temp_file_path,
-        dir
-    )
-    LOGGER.info(f"Metadata modified successfully for file: {file_name}")
+    return dir

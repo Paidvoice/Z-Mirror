@@ -383,6 +383,7 @@ programming in Python.
       - `(text)` will get removed
       - `[test]` will get replaced by test
       - `\text\` will get replaced by text with sensitive case
+  - `METADATA_TXT`: Edit metadata of the video. `Str`
 
 **12. Super Group Features**
 

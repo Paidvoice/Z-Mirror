@@ -41,10 +41,6 @@ from bot.helper.ext_utils.files_utils import (
     join_files,
 )
 from bot.helper.ext_utils.links_utils import is_gdrive_id
-from bot.helper.ext_utils.media_utils import (
-    edit_video_metadata,
-    get_document_type
-)
 from bot.helper.ext_utils.status_utils import (
     get_readable_file_size,
     get_readable_time
@@ -56,7 +52,6 @@ from bot.helper.ext_utils.task_manager import (
 from bot.helper.task_utils.gdrive_utils.upload import gdUpload
 from bot.helper.task_utils.rclone_utils.transfer import RcloneTransferHelper
 from bot.helper.task_utils.status_utils.gdrive_status import GdriveStatus
-from bot.helper.task_utils.status_utils.meta_status import MetaStatus
 from bot.helper.task_utils.status_utils.queue_status import QueueStatus
 from bot.helper.task_utils.status_utils.rclone_status import RcloneStatus
 from bot.helper.task_utils.status_utils.telegram_status import TelegramStatus
@@ -306,20 +301,11 @@ class TaskListener(TaskConfig):
         )
         self.size = await get_path_size(up_dir)
 
-        if self.isLeech and self.metadata:
-            (
-                is_video,
-                _,
-                _
-            ) = await get_document_type(up_path)
-            if is_video:
-                async with task_dict_lock:
-                    task_dict[self.mid] = MetaStatus(self, gid)
-                LOGGER.info(f"Editing Metadata: {up_path}")
-                await edit_video_metadata(
-                    self.metadata,
-                    up_path
-                )
+        if self.metadata:
+            await self.proceedMetadata(
+                up_path,
+                gid
+            )
             if self.isCancelled:
                 return
 

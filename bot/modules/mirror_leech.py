@@ -140,6 +140,7 @@ class Mirror(TaskListener):
             "-ca": "", "-convertaudio": "",
             "-cv": "", "-convertvideo": "",
             "-ns": "", "-namesub": "",
+            "-md": "", "-metadata": "",
         }
 
         arg_parser(
@@ -167,6 +168,7 @@ class Mirror(TaskListener):
         self.convertVideo = args["-cv"] or args["-convertvideo"]
         self.nameSub = args["-ns"] or args["-namesub"]
         self.mixedLeech = args["-ml"] or args["-mixedleech"]
+        self.metadata = args["-md"] or args["-metadata"]
 
         headers = args["-h"] or args["-headers"]
         isBulk = args["-b"] or args["-bulk"]

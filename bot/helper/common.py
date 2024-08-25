@@ -62,6 +62,7 @@ from bot.helper.ext_utils.links_utils import (
 from bot.helper.ext_utils.media_utils import (
     createThumb,
     createSampleVideo,
+    edit_video_metadata,
     take_ss,
 )
 from bot.helper.ext_utils.media_utils import (
@@ -79,6 +80,7 @@ from bot.helper.task_utils.status_utils.sample_video_status import (
 from bot.helper.task_utils.status_utils.media_convert_status import (
     MediaConvertStatus,
 )
+from bot.helper.task_utils.status_utils.meta_status import MetaStatus
 from bot.helper.task_utils.status_utils.split_status import SplitStatus
 from bot.helper.task_utils.status_utils.zip_status import ZipStatus
 from bot.helper.telegram_helper.bot_commands import BotCommands
@@ -120,6 +122,7 @@ class TaskConfig:
         self.mode = ""
         self.time = ""
         self.chatId = ""
+        self.metadata = None
         self.getChat = None
         self.splitSize = 0
         self.maxSplitSize = 0
@@ -154,7 +157,6 @@ class TaskConfig:
         self.forceUpload = False
         self.isTorrent = False
         self.is_playlist = False
-        self.metadata = False
         self.suproc = None
         self.thumb = None
         self.dmMessage = None
@@ -393,7 +395,7 @@ class TaskConfig:
                 "!qB"
             ]
         )
-        self.metadata = self.userDict.get("metatxt") or (
+        self.metadata = self.metadata or self.userDict.get("metatxt") or (
             config_dict["METADATA_TXT"]
             if "metatxt" not in self.userDict
             else False
@@ -1176,7 +1178,11 @@ class TaskConfig:
 
     async def proceedSplit(self, up_dir, m_size, o_files, gid):
         checked = False
-        for dirpath, _, files in await sync_to_async(
+        for (
+            dirpath,
+            _,
+            files
+        ) in await sync_to_async(
             walk,
             up_dir,
             topdown=False
@@ -1708,3 +1714,23 @@ class TaskConfig:
                         )
                     )
             return dl_path
+
+    async def proceedMetadata(self, up_path, gid):
+        (
+            is_video,
+            _,
+            _
+        ) = await get_document_type(up_path)
+        if is_video:
+            async with task_dict_lock:
+                task_dict[self.mid] = MetaStatus(
+                    self,
+                    gid
+                )
+            LOGGER.info(f"Editing Metadata: {up_path}")
+            await edit_video_metadata(
+                self,
+                self.metadata,
+                up_path
+            )
+        return up_path
