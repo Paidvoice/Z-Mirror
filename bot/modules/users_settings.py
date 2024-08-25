@@ -190,10 +190,10 @@ async def get_user_settings(from_user):
     else:
         mixed_leech = "Disabled"
 
-    if user_dict.get("metadatatext", False):
-        metadatatext = user_dict["metadatatext"]
+    if user_dict.get("metatxt", False):
+        metatxt = "Added"
     else:
-        metadatatext = "None"
+        metatxt = "None"
 
     buttons.ibutton(
         "ʟᴇᴇᴄʜ\nꜱᴇᴛᴛɪɴɢꜱ",
@@ -357,7 +357,7 @@ async def get_user_settings(from_user):
 <code>Leech Cap Font   :</code> <b>{lcapfont}</b>
 <code>Leech Split Size :</code> <b>{split_size}</b>
 <code>Leech Destination:</code> <b>{leech_dest}</b>
-<code>Metadata Text    :</code> <b>{escape(metadatatext)}</b>
+<code>Metadata Text    :</code> <b>{metatxt}</b>
 
 <code>Thumbnail        :</code> <b>{thumbmsg}</b>
 <code>Equal Splits     :</code> <b>{equal_splits}</b>
@@ -660,7 +660,7 @@ async def edit_user_settings(client, query):
         "yt_opt",
         "lprefix",
         "lsuffix",
-        "metadatatext",
+        "metatxt",
         "lcapfont",
         "index_url",
         "name_sub",
@@ -884,13 +884,17 @@ async def edit_user_settings(client, query):
             )
         else:
             mixed_leech = "Disabled"
-
-        buttons.ibutton("Metadata Text", f"userset {user_id} metadata_text")
-        if user_dict.get("metadatatext", False):
-            metadatatext = user_dict["metadatatext"]
+        buttons.ibutton(
+            "ᴍᴇᴛᴀᴅᴀᴛᴀ\nᴛᴇxᴛ",
+            f"userset {user_id} metadata_text"
+        )
+        if user_dict.get(
+            "metatxt",
+            False
+        ):
+            metatxt = user_dict["metatxt"]
         else:
-            metadatatext = "None"
-
+            metatxt = "None"
         buttons.ibutton(
             "ʙᴀᴄᴋ",
             f"userset {user_id} back",
@@ -910,7 +914,7 @@ async def edit_user_settings(client, query):
 <code>Leech Suffix     :</code> <b>{escape(lsuffix)}</b>
 <code>Leech Cap Font   :</code> <b>{escape(lcapfont)}</b>
 <code>Leech Destination:</code> <b>{leech_dest}</b>
-<code>Metadata Text    :</code> <b>{escape(metadatatext)}</b>
+<code>Metadata Text    :</code> <b>{escape(metatxt)}</b>
 
 <code>Thumbnail        :</code> <b>{thumbmsg}</b>
 <code>Equal Splits     :</code> <b>{equal_splits}</b>
@@ -1448,25 +1452,25 @@ or use this <a href='https://t.me/mltb_official_channel/177'>script</a> to conve
         buttons = ButtonMaker()
         if (
             user_dict.get(
-                "metadatatext",
+                "metatxt",
                 False
             )
         ):
             buttons.ibutton(
-                "Remove Metadata Text",
-                f"userset {user_id} metadatatext"
+                "ʀᴇᴍᴏᴠᴇ\nᴍᴇᴛᴀᴅᴀᴛᴀ ᴛᴇxᴛ",
+                f"userset {user_id} metatxt"
             )
         buttons.ibutton(
-            "Back",
+            "ʙᴀᴄᴋ",
             f"userset {user_id} leech"
         )
         buttons.ibutton(
-            "Close",
+            "ᴄʟᴏꜱᴇ",
             f"userset {user_id} close"
         )
         await editMessage(
             message,
-            "Send Leech Metadata Text, Whatever You want to add in the Videos. Timeout: 60 sec",
+            "Send Leech Metadata Text, Whatever You want to add in the Videos.\n\nTimeout: 60 sec",
             buttons.build_menu(1),
         )
         try:
@@ -1482,7 +1486,7 @@ or use this <a href='https://t.me/mltb_official_channel/177'>script</a> to conve
             await gather(
                 set_option(
                     event,
-                    "metadatatext"
+                    "metatxt"
                 ),
                 update_user_settings(query)
             )

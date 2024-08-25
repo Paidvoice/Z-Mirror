@@ -76,6 +76,7 @@ class TgUploader:
         self._lprefix = ""
         self._lsuffix = ""
         self._lcapfont = ""
+        self._metaData = ""
         self._media_group = False
         self._is_private = False
         self._sent_msg = None
@@ -111,6 +112,11 @@ class TgUploader:
         self._lcapfont = self._listener.userDict.get("lcapfont") or (
             config_dict["LEECH_CAPTION_FONT"]
             if "lcapfont" not in self._listener.userDict
+            else ""
+        )
+        self._metaData = self._listener.userDict.get("metatxt") or (
+            config_dict["METADATA_TXT"]
+            if "metatxt" not in self._listener.userDict
             else ""
         )
         if not await aiopath.exists(self._thumb): # type: ignore
@@ -176,6 +182,19 @@ class TgUploader:
         return True
 
     async def _prepare_file(self, file_, dirpath, delete_file):
+        fpath = ospath.join(dirpath, file_)
+        (
+            is_video,
+            _,
+            _
+        ) = await get_document_type(fpath)
+        if is_video:
+            if self._metaData:
+                LOGGER.info(f"Editing Metadata: {fpath}")
+                await edit_video_metadata(
+                    self._metaData,
+                    fpath
+                )
         if self._lprefix or self._lsuffix:
             if self._lprefix:
                 cap_mono = f"{self._lprefix} {file_}"
@@ -373,7 +392,10 @@ class TgUploader:
                 self._sent_DMmsg = None
 
     async def _send_media_group(self, subkey, key, msgs):
-        for index, msg in enumerate(msgs):
+        for (
+            index,
+            msg
+        ) in enumerate(msgs):
             if self._listener.mixedLeech or not self._user_session: # type: ignore
                 msgs[index] = await self._listener.client.get_messages(
                     chat_id=msg[0],
@@ -430,7 +452,11 @@ class TgUploader:
         res = await self._msg_to_reply()
         if not res:
             return
-        for dirpath, _, files in natsorted(
+        for (
+            dirpath,
+            _,
+            files
+        ) in natsorted(
             await sync_to_async(
                 walk,
                 self._path
@@ -498,8 +524,14 @@ class TgUploader:
                             and match.group(0)
                             not in group_lists
                         ):
-                            for key, value in list(self._media_dict.items()):
-                                for subkey, msgs in list(value.items()):
+                            for (
+                                key,
+                                value
+                            ) in list(self._media_dict.items()):
+                                for (
+                                    subkey,
+                                    msgs
+                                ) in list(value.items()):
                                     if len(msgs) > 1:
                                         await self._send_media_group(
                                             subkey,
@@ -561,7 +593,10 @@ class TgUploader:
                         )
                     ):
                         await remove(self._up_path)
-        for key, value in list(self._media_dict.items()):
+        for (
+            key,
+            value
+        ) in list(self._media_dict.items()):
             for subkey, msgs in list(value.items()):
                 if len(msgs) > 1:
                     try:
@@ -636,7 +671,7 @@ class TgUploader:
         except Exception as err:
             if isinstance(err, RPCError):
                 LOGGER.error(
-                    f"Error while sending dm {err.NAME}: {err.MESSAGE}")
+                    f"Error while sending dm {err.NAME}: {err.MESSAGE}") # type: ignore
             else:
                 LOGGER.error(
                     f"Error while sending dm {err.__class__.__name__}")
@@ -660,7 +695,11 @@ class TgUploader:
         thumb = self._thumb
         self._is_corrupted = False
         try:
-            is_video, is_audio, is_image = await get_document_type(self._up_path)
+            (
+                is_video,
+                is_audio,
+                is_image
+            ) = await get_document_type(self._up_path)
 
             if not is_image and thumb is None:
                 file_name = ospath.splitext(file)[0]
@@ -699,7 +738,6 @@ class TgUploader:
                 )
             elif is_video:
                 key = "videos"
-                await edit_video_metadata (user_id=self._listener.message.from_user.id, file_path=self._up_path)
                 duration = (await get_media_info(self._up_path))[0]
                 if thumb is None:
                     thumb = await create_thumbnail(
@@ -708,7 +746,10 @@ class TgUploader:
                     )
                 if thumb is not None:
                     with Image.open(thumb) as img:
-                        width, height = img.size
+                        (
+                            width,
+                            height
+                        ) = img.size
                 else:
                     width = 480
                     height = 320
