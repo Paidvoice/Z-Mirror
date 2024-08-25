@@ -190,10 +190,21 @@ async def get_user_settings(from_user):
     else:
         mixed_leech = "Disabled"
 
-    if user_dict.get("metatxt", False):
+    if user_dict.get(
+        "metatxt",
+        False
+    ):
         metatxt = "Added"
     else:
-        metatxt = "None"
+        metatxt = "Not Added"
+
+    if user_dict.get(
+        "attachmenturl",
+        False
+    ):
+        attachmenturl = "Added"
+    else:
+        attachmenturl = "Not Added"
 
     buttons.ibutton(
         "ʟᴇᴇᴄʜ\nꜱᴇᴛᴛɪɴɢꜱ",
@@ -358,6 +369,7 @@ async def get_user_settings(from_user):
 <code>Leech Split Size :</code> <b>{split_size}</b>
 <code>Leech Destination:</code> <b>{leech_dest}</b>
 <code>Metadata Text    :</code> <b>{metatxt}</b>
+<code>Attachment Url   :</code> <b>{attachmenturl}</b>
 
 <code>Thumbnail        :</code> <b>{thumbmsg}</b>
 <code>Equal Splits     :</code> <b>{equal_splits}</b>
@@ -661,6 +673,7 @@ async def edit_user_settings(client, query):
         "lprefix",
         "lsuffix",
         "metatxt",
+        "attachmenturl",
         "lcapfont",
         "index_url",
         "name_sub",
@@ -896,6 +909,17 @@ async def edit_user_settings(client, query):
         else:
             metatxt = "None"
         buttons.ibutton(
+            "ᴀᴛᴛᴀᴄʜᴍᴇɴᴛ\nᴜʀʟ",
+            f"userset {user_id} attachment_url"
+        )
+        if user_dict.get(
+            "attachmenturl",
+            False
+        ):
+            attachmenturl = user_dict["attachmenturl"]
+        else:
+            attachmenturl = "None"
+        buttons.ibutton(
             "ʙᴀᴄᴋ",
             f"userset {user_id} back",
             position="footer"
@@ -915,6 +939,7 @@ async def edit_user_settings(client, query):
 <code>Leech Cap Font   :</code> <b>{escape(lcapfont)}</b>
 <code>Leech Destination:</code> <b>{leech_dest}</b>
 <code>Metadata Text    :</code> <b>{escape(metatxt)}</b>
+<code>Attachment Url   :</code> <b>{escape(attachmenturl)}</b>
 
 <code>Thumbnail        :</code> <b>{thumbmsg}</b>
 <code>Equal Splits     :</code> <b>{equal_splits}</b>
@@ -1487,6 +1512,50 @@ or use this <a href='https://t.me/mltb_official_channel/177'>script</a> to conve
                 set_option(
                     event,
                     "metatxt"
+                ),
+                update_user_settings(query)
+            )
+
+    elif data[2] == "attachment_url":
+        await query.answer()
+        buttons = ButtonMaker()
+        if (
+            user_dict.get(
+                "attachmenturl",
+                False
+            )
+        ):
+            buttons.ibutton(
+                "ʀᴇᴍᴏᴠᴇ ᴀᴛᴛᴀᴄʜᴍᴇɴᴛ ᴜʀʟ",
+                f"userset {user_id} attachmenturl"
+            )
+        buttons.ibutton(
+            "ʙᴀᴄᴋ",
+            f"userset {user_id} leech"
+        )
+        buttons.ibutton(
+            "ᴄʟᴏꜱᴇ",
+            f"userset {user_id} close"
+        )
+        await editMessage(
+            message,
+            "Send Leech Attachment Url, which you want to get embedded with the video.\n\nTimeout: 60 sec",
+            buttons.build_menu(1),
+        )
+        try:
+            event = await event_handler(
+                client,
+                query
+            )
+        except ListenerTimeout:
+            await update_user_settings(query)
+        except ListenerStopped:
+            pass
+        else:
+            await gather(
+                set_option(
+                    event,
+                    "attachmenturl"
                 ),
                 update_user_settings(query)
             )
