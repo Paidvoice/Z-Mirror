@@ -384,6 +384,7 @@ programming in Python.
       - `[test]` will get replaced by test
       - `\text\` will get replaced by text with sensitive case
   - `METADATA_TXT`: Edit metadata of the video. `Str`
+  - `META_ATTACHMENT`: Add attachment to the metadata. `Str`
 
 **12. Super Group Features**
 

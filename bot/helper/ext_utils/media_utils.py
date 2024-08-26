@@ -1,3 +1,4 @@
+from pathlib import Path
 from PIL import Image
 from aiofiles.os import (
     remove,
@@ -12,9 +13,7 @@ from asyncio import (
 from asyncio.subprocess import PIPE
 from os import (
     path as ospath,
-    cpu_count,
-    replace as osreplace,
-    remove as osremove
+    cpu_count
 )
 from re import search as re_search
 from time import time
@@ -808,21 +807,22 @@ async def createSampleVideo(listener, video_file, sample_duration, part_duration
         return False
 
 
-async def edit_video_metadata(listener, data, dir):
+SUPPORTED_VIDEO_EXTENSIONS = {
+    ".mp4",
+    ".mkv"
+}
 
-    if not dir.lower().endswith((
-        ".mp4",
-        ".mkv"
-    )):
+
+async def edit_video_metadata(listener, dir):
+
+    data = listener.metaData
+    dir_path = Path(dir)
+
+    if dir_path.suffix.lower() not in SUPPORTED_VIDEO_EXTENSIONS:
         return dir
 
-    file_name = ospath.basename(dir)
-    directory = ospath.dirname(dir)
-    temp_file = f"{file_name}.temp.mkv"
-    temp_file_path = ospath.join(
-        directory,
-        temp_file
-    )
+    file_name = dir_path.name
+    work_path = dir_path.with_suffix(".temp.mkv")
 
     await is_multi_streams(dir)
 
@@ -930,12 +930,14 @@ async def edit_video_metadata(listener, data, dir):
         LOGGER.info("No streams found. Skipping stream metadata modification.")
         return dir
 
-    cmd.append(temp_file_path)
+    cmd.append(work_path)
     LOGGER.info(f"Modifying metadata for file: {file_name}")
 
     try:
         async with subprocess_lock:
             if listener.isCancelled:
+                if work_path.exists():
+                    work_path.unlink()
                 return
             listener.suproc = await create_subprocess_exec(
                 *cmd,
@@ -948,27 +950,117 @@ async def edit_video_metadata(listener, data, dir):
         ) = await listener.suproc.communicate()
 
         if listener.suproc.returncode != 0:
+            if work_path.exists():
+                work_path.unlink()
             if listener.isCancelled:
                 return
             err = stderr.decode().strip()
             LOGGER.error(f"Error modifying metadata for file: {file_name} | {err}")
-            if ospath.exists(temp_file_path):
-                osremove(temp_file_path)
             return dir
 
-        if ospath.exists(temp_file_path):
-            osreplace(
-                temp_file_path,
-                dir
-            )
+        if work_path.exists():
+            work_path.replace(dir_path)
             LOGGER.info(f"Metadata modified successfully for file: {file_name}")
         else:
-            LOGGER.error(f"Temporary file {temp_file_path} not found. Metadata modification failed.")
+            LOGGER.error(f"Temporary file {work_path} not found. Metadata modification failed.")
 
-    except (RuntimeError, OSError) as e:
+    except (
+        RuntimeError,
+        OSError
+    ) as e:
         LOGGER.error(f"Error modifying metadata: {str(e)}")
-        if ospath.exists(temp_file_path):
-            osremove(temp_file_path)
+        if work_path.exists():
+            work_path.unlink()
         return dir
+    
+    finally:
+        if work_path.exists():
+            work_path.unlink()
+
+    return dir
+
+
+async def add_attachment(listener, dir):
+
+    MIME_TYPES = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+    }
+
+    data = listener.metaAttachment
+    dir_path = Path(dir)
+
+    if dir_path.suffix.lower() not in SUPPORTED_VIDEO_EXTENSIONS:
+        return dir
+
+    file_name = dir_path.name
+    work_path = dir_path.with_suffix(".temp.mkv")
+
+    data_ext = data.split(".")[-1].lower()
+    mime_type = MIME_TYPES.get(
+        data_ext,
+        "application/octet-stream"
+    )
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        dir,
+        "-attach",
+        data,
+        "-metadata:s:t",
+        f"mimetype={mime_type}",
+        "-c",
+        "copy",
+        "-map",
+        "0",
+        work_path
+    ]
+
+    try:
+        async with subprocess_lock:
+            if listener.isCancelled:
+                if work_path.exists():
+                    work_path.unlink()
+                return
+            listener.suproc = await create_subprocess_exec(
+                *cmd,
+                stderr=PIPE,
+                stdout=PIPE
+            )
+        (
+            _,
+            stderr
+        ) = await listener.suproc.communicate()
+
+        if listener.suproc.returncode != 0:
+            if work_path.exists():
+                work_path.unlink()
+            if listener.isCancelled:
+                return
+            err = stderr.decode().strip()
+            LOGGER.error(f"Error adding photo attachment to file: {file_name} | {err}")
+            return dir
+
+        if work_path.exists():
+            work_path.replace(dir_path)
+            LOGGER.info(f"Photo attachment added successfully to file: {file_name}")
+        else:
+            LOGGER.error(f"Temporary file {work_path} not found. Adding photo attachment failed.")
+
+    except (
+        RuntimeError,
+        OSError
+    ) as e:
+        LOGGER.error(f"Error adding photo attachment: {str(e)}")
+        if work_path.exists():
+            work_path.unlink()
+        return dir
+    
+    finally:
+        if work_path.exists():
+            work_path.unlink()
 
     return dir

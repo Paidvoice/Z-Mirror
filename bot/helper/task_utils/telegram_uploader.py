@@ -53,7 +53,6 @@ from bot.helper.ext_utils.media_utils import (
     get_audio_thumb,
 )
 from bot.helper.telegram_helper.message_utils import deleteMessage
-from bot.modules.metadata import add_attachment
 
 LOGGER = getLogger(__name__)
 
@@ -719,7 +718,6 @@ class TgUploader:
                 )
             elif is_video:
                 key = "videos"
-                await add_attachment(user_id=self._listener.message.from_user.id, file_path=self._up_path)
                 duration = (await get_media_info(self._up_path))[0]
                 if thumb is None:
                     thumb = await create_thumbnail(

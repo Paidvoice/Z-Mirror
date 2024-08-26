@@ -60,6 +60,7 @@ from bot.helper.ext_utils.links_utils import (
     is_telegram_link,
 )
 from bot.helper.ext_utils.media_utils import (
+    add_attachment,
     createThumb,
     createSampleVideo,
     edit_video_metadata,
@@ -122,7 +123,8 @@ class TaskConfig:
         self.mode = ""
         self.time = ""
         self.chatId = ""
-        self.metadata = None
+        self.metaData = None
+        self.metaAttachment = None
         self.getChat = None
         self.splitSize = 0
         self.maxSplitSize = 0
@@ -395,9 +397,14 @@ class TaskConfig:
                 "!qB"
             ]
         )
-        self.metadata = self.metadata or self.userDict.get("metatxt") or (
+        self.metaData = self.metaData or self.userDict.get("metatxt") or (
             config_dict["METADATA_TXT"]
             if "metatxt" not in self.userDict
+            else False
+        )
+        self.metaAttachment = self.metaAttachment or self.userDict.get("attachmenturl") or (
+            config_dict["META_ATTACHMENT"]
+            if "attachmenturl" not in self.userDict
             else False
         )
         if self.link not in [
@@ -1730,7 +1737,19 @@ class TaskConfig:
             LOGGER.info(f"Editing Metadata: {up_path}")
             await edit_video_metadata(
                 self,
-                self.metadata,
                 up_path
             )
+        return up_path
+
+    async def proceedAttachment(self, up_path, gid):
+        async with task_dict_lock:
+            task_dict[self.mid] = MetaStatus(
+                self,
+                gid
+            )
+        LOGGER.info(f"Adding Attachment: {up_path}")
+        await add_attachment(
+            self,
+            up_path
+        )
         return up_path
